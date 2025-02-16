@@ -189,21 +189,28 @@ export function analyzeCode(code: string): { results: SecurityResult[], scores: 
 }
 
 function calculateScores(issuesByCategory: Record<string, SecurityResult[]>): AnalysisScores {
+  // Recalibrated severity weights to be less punitive
   const severityWeights = {
-    critical: -40,
-    high: -20,
-    medium: -10,
-    low: -5,
-    info: -2
+    critical: -15, // Was -40
+    high: -10,     // Was -20
+    medium: -5,    // Was -10
+    low: -2,       // Was -5
+    info: -1       // Was -2
   };
 
   function calculateCategoryScore(issues: SecurityResult[]): number {
     if (issues.length === 0) return 100;
 
-    const deductions = issues.reduce((total, issue) => 
+    // Calculate base deductions
+    const deductions = issues.reduce((total, issue) =>
       total + severityWeights[issue.severity as keyof typeof severityWeights], 0);
 
-    return Math.max(0, Math.min(100, 100 + deductions));
+    // Scale deductions based on number of issues (more forgiving for a few issues)
+    const scalingFactor = Math.max(0.5, 1 - (issues.length / 20)); // Reduces impact for first few issues
+    const scaledDeductions = deductions * scalingFactor;
+
+    // Ensure score stays within bounds and apply a more gradual reduction
+    return Math.max(0, Math.min(100, 100 + scaledDeductions));
   }
 
   const categoryScores = {
@@ -213,14 +220,13 @@ function calculateScores(issuesByCategory: Record<string, SecurityResult[]>): An
     bestPractices: calculateCategoryScore(issuesByCategory.best_practices)
   };
 
-  // Calculate weighted overall score
-  // Security has highest weight (40%), followed by code quality (25%),
-  // best practices (20%), and gas optimization (15% - lower due to L2 consideration)
+  // Weighted overall score with adjusted weights
+  // Security issues are weighted less heavily to prevent over-penalization
   const overall = Math.round(
-    (categoryScores.security * 0.4) +
-    (categoryScores.codeQuality * 0.25) +
-    (categoryScores.bestPractices * 0.2) +
-    (categoryScores.gas * 0.15)
+    (categoryScores.security * 0.35) +      // Was 0.4
+    (categoryScores.codeQuality * 0.25) +   // Same
+    (categoryScores.bestPractices * 0.25) + // Was 0.2
+    (categoryScores.gas * 0.15)             // Same
   );
 
   return {
