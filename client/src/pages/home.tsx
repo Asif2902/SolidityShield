@@ -67,16 +67,27 @@ export default function Home() {
     setCode("");
     setResults([]);
     setScores(undefined);
+    toast({
+      title: "Code Cleared",
+      description: "The editor has been cleared",
+    });
   };
 
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
+      if (!text) {
+        throw new Error("Clipboard is empty");
+      }
       setCode(text);
+      toast({
+        title: "Code Pasted",
+        description: "Successfully pasted code from clipboard",
+      });
     } catch (err) {
       toast({
         title: "Paste Failed",
-        description: "Could not access clipboard. Try manual paste.",
+        description: "Could not access clipboard. Try manual paste (Ctrl/Cmd + V).",
         variant: "destructive",
       });
     }
@@ -104,7 +115,7 @@ export default function Home() {
                   variant="outline"
                   size="sm"
                   onClick={handlePaste}
-                  className="gap-2"
+                  className="gap-2 hover:bg-primary/5 active:scale-95 transition-transform"
                 >
                   <Clipboard className="h-4 w-4" />
                   Paste
@@ -113,7 +124,7 @@ export default function Home() {
                   variant="outline"
                   size="sm"
                   onClick={handleClear}
-                  className="gap-2"
+                  className="gap-2 hover:bg-destructive/5 active:scale-95 transition-transform"
                 >
                   <Trash2 className="h-4 w-4" />
                   Clear
@@ -135,9 +146,9 @@ export default function Home() {
 
             {results.length > 0 && scores && (
               <>
-                <Alert variant="warning" className="border-yellow-200 bg-yellow-50">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-600">
+                <Alert variant="warning">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
                     This is an automated analysis tool. Always consult with professional smart contract auditors before deploying to production.
                   </AlertDescription>
                 </Alert>
