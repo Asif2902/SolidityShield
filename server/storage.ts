@@ -1,4 +1,6 @@
 import { securityChecks, type SecurityCheck, type InsertSecurityCheck } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   createSecurityCheck(check: InsertSecurityCheck): Promise<SecurityCheck>;
@@ -6,31 +8,30 @@ export interface IStorage {
   getRecentChecks(): Promise<SecurityCheck[]>;
 }
 
-export class MemStorage implements IStorage {
-  private checks: Map<number, SecurityCheck>;
-  private currentId: number;
-
-  constructor() {
-    this.checks = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async createSecurityCheck(insertCheck: InsertSecurityCheck): Promise<SecurityCheck> {
-    const id = this.currentId++;
-    const check: SecurityCheck = { ...insertCheck, id };
-    this.checks.set(id, check);
+    const [check] = await db
+      .insert(securityChecks)
+      .values([insertCheck])
+      .returning();
     return check;
   }
 
   async getSecurityCheck(id: number): Promise<SecurityCheck | undefined> {
-    return this.checks.get(id);
+    const [check] = await db
+      .select()
+      .from(securityChecks)
+      .where(eq(securityChecks.id, id));
+    return check;
   }
 
   async getRecentChecks(): Promise<SecurityCheck[]> {
-    return Array.from(this.checks.values())
-      .sort((a, b) => b.id - a.id)
-      .slice(0, 10);
+    return await db
+      .select()
+      .from(securityChecks)
+      .orderBy(securityChecks.id)
+      .limit(10);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
