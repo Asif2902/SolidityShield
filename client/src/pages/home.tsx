@@ -3,11 +3,12 @@ import { CodeEditor } from "@/components/code-editor";
 import { AnalysisReport } from "@/components/analysis-report";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Trash2, Clipboard } from "lucide-react";
+import { AlertTriangle, Trash2, Clipboard, Download } from "lucide-react";
 import { analyzeCode } from "@/lib/security-rules";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { SecurityResult } from "@shared/schema";
+import { generateAuditReport } from "@/lib/pdf-generator";
 
 interface AnalysisScores {
   security: number;
@@ -93,6 +94,33 @@ export default function Home() {
     }
   };
 
+  const handleDownloadReport = () => {
+    if (!results.length || !scores) {
+      toast({
+        title: "No Analysis Results",
+        description: "Please analyze your code first before downloading the report",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const doc = generateAuditReport(code, results, scores);
+      doc.save('smart-contract-audit-report.pdf');
+
+      toast({
+        title: "Report Downloaded",
+        description: "Your audit report has been downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate the audit report",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 max-w-7xl space-y-8">
@@ -101,7 +129,7 @@ export default function Home() {
             Solidity Security Analyzer
           </h1>
           <p className="text-muted-foreground text-lg">
-            Analyze your smart contract code for potential security issues, 
+            Analyze your smart contract code for potential security issues,
             gas optimizations, and best practices
           </p>
         </div>
@@ -138,6 +166,15 @@ export default function Home() {
               className="w-full"
             >
               {analyzing ? "Analyzing..." : "Analyze Contract"}
+            </Button>
+            <Button
+              onClick={handleDownloadReport}
+              variant="outline"
+              className="w-full mt-2 gap-2"
+              disabled={analyzing || !results.length}
+            >
+              <Download className="h-4 w-4" />
+              Download Audit Report
             </Button>
           </div>
 

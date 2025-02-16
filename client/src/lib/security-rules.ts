@@ -2,7 +2,7 @@ import type { SecurityResult } from "@shared/schema";
 
 interface Pattern {
   regex: RegExp;
-  check: (match: RegExpMatchArray, code: string) => SecurityResult;
+  check: (match: RegExpMatchArray, code: string) => SecurityResult | null;
   category: 'security' | 'gas' | 'best_practices' | 'code_quality';
 }
 
@@ -121,6 +121,94 @@ const patterns: Pattern[] = [
       recommendation: "Lock the pragma to a specific version"
     }),
     category: 'best_practices'
+  },
+  {
+    regex: /function\s+\w+\s*\([^)]*\)\s*external\s+payable[^{]*{\s*[^}]*msg\.value[^}]*}/g,
+    check: (match) => ({
+      id: "UNCHECKED_PAYMENT",
+      title: "Unchecked Payment Amount",
+      description: "Function accepts payments without proper amount validation",
+      severity: "critical",
+      line: getLineNumber(match),
+      recommendation: "Add explicit checks for msg.value to prevent unintended payment amounts"
+    }),
+    category: 'security'
+  },
+  {
+    regex: /using\s+SafeMath\s+for\s+uint/g,
+    check: (match) => ({
+      id: "DEPRECATED_SAFEMATH",
+      title: "Deprecated SafeMath Usage",
+      description: "SafeMath is not needed for Solidity >=0.8.0 as overflow checks are built-in",
+      severity: "info",
+      line: getLineNumber(match),
+      recommendation: "Remove SafeMath for Solidity >=0.8.0 to save gas"
+    }),
+    category: 'gas'
+  },
+  {
+    regex: /assembly\s*{[^}]*}/g,
+    check: (match) => ({
+      id: "INLINE_ASSEMBLY",
+      title: "Inline Assembly Usage",
+      description: "Contract uses inline assembly which bypasses Solidity safety checks",
+      severity: "high",
+      line: getLineNumber(match),
+      recommendation: "Avoid inline assembly unless absolutely necessary for optimizations"
+    }),
+    category: 'security'
+  },
+  {
+    regex: /function\s+\w+\s*\([^)]*\)\s*public\s+returns\s*\([^)]+\)\s*{\s*[^}]*\}/g,
+    check: (match, code) => {
+      // Check if the function modifies state but doesn't emit events
+      const functionBody = match[0];
+      const modifiesState = /\b(=|\+=|-=|\*=|\/=)\b/.test(functionBody);
+      const emitsEvent = /\bemit\b/.test(functionBody);
+
+      if (modifiesState && !emitsEvent) {
+        return {
+          id: "MISSING_EVENTS",
+          title: "Missing Event Emission",
+          description: "State-changing function doesn't emit events",
+          severity: "medium",
+          line: getLineNumber(match),
+          recommendation: "Emit events for all state changes to aid in off-chain tracking"
+        };
+      }
+      return null;
+    },
+    category: 'best_practices'
+  },
+  {
+    regex: /mapping\s*\([^)]+\)/g,
+    check: (match, code) => {
+      const mappingDef = match[0];
+      if (!mappingDef.includes("=>")) {
+        return {
+          id: "INVALID_MAPPING",
+          title: "Invalid Mapping Syntax",
+          description: "Mapping declaration uses incorrect syntax",
+          severity: "high",
+          line: getLineNumber(match),
+          recommendation: "Use the correct mapping syntax with '=>' operator"
+        };
+      }
+      return null;
+    },
+    category: 'code_quality'
+  },
+  {
+    regex: /function\s+\w+\s*\([^)]*\)\s*public\s+payable[^{]*{\s*[^}]*selfdestruct\s*\([^)]*\)[^}]*}/g,
+    check: (match) => ({
+      id: "SELF_DESTRUCT",
+      title: "Unprotected Selfdestruct",
+      description: "Contract can be destroyed by anyone",
+      severity: "critical",
+      line: getLineNumber(match),
+      recommendation: "Add proper access control to selfdestruct operations"
+    }),
+    category: 'security'
   }
 ];
 
@@ -152,8 +240,10 @@ export function analyzeCode(code: string): { results: SecurityResult[], scores: 
     let matches = Array.from(code.matchAll(pattern.regex));
     matches.forEach(match => {
       const result = pattern.check(match, code);
-      results.push(result);
-      issuesByCategory[pattern.category].push(result);
+      if (result) {
+        results.push(result);
+        issuesByCategory[pattern.category].push(result);
+      }
     });
   });
 
