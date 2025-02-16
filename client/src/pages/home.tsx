@@ -2,14 +2,23 @@ import { useState } from "react";
 import { CodeEditor } from "@/components/code-editor";
 import { AnalysisReport } from "@/components/analysis-report";
 import { Button } from "@/components/ui/button";
-import { analyzeCode, calculateScore } from "@/lib/security-rules";
+import { analyzeCode } from "@/lib/security-rules";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { SecurityResult } from "@shared/schema";
 
+interface AnalysisScores {
+  security: number;
+  gas: number;
+  codeQuality: number;
+  bestPractices: number;
+  overall: number;
+}
+
 export default function Home() {
   const [code, setCode] = useState("");
   const [results, setResults] = useState<SecurityResult[]>([]);
+  const [scores, setScores] = useState<AnalysisScores>();
   const [analyzing, setAnalyzing] = useState(false);
   const { toast } = useToast();
 
@@ -25,21 +34,21 @@ export default function Home() {
 
     setAnalyzing(true);
     try {
-      const results = analyzeCode(code);
-      const score = calculateScore(results);
+      const analysis = analyzeCode(code);
 
       await apiRequest("POST", "/api/analyze", {
         code,
-        results,
-        score,
+        results: analysis.results,
+        score: analysis.scores.overall,
         timestamp: new Date().toISOString(),
       });
 
-      setResults(results);
-      
+      setResults(analysis.results);
+      setScores(analysis.scores);
+
       toast({
         title: "Analysis Complete",
-        description: `Found ${results.length} potential issues`,
+        description: `Found ${analysis.results.length} potential issues`,
       });
     } catch (error) {
       toast({
@@ -60,7 +69,8 @@ export default function Home() {
             Solidity Security Analyzer
           </h1>
           <p className="text-muted-foreground">
-            Paste your Solidity smart contract code below to analyze it for potential security issues
+            Paste your Solidity smart contract code below to analyze it for potential security issues, 
+            gas optimizations, and best practices
           </p>
         </div>
 
@@ -79,10 +89,10 @@ export default function Home() {
 
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Analysis Results</h2>
-            {results.length > 0 && (
+            {results.length > 0 && scores && (
               <AnalysisReport
                 results={results}
-                score={calculateScore(results)}
+                scores={scores}
               />
             )}
           </div>
