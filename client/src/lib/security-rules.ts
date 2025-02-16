@@ -250,11 +250,11 @@ export function analyzeCode(code: string): { results: SecurityResult[], scores: 
   // Add general checks
   if (code.length > 0) {
     if (!code.includes('SPDX-License-Identifier:')) {
-      const result = {
+      const result: SecurityResult = {
         id: "LICENSE",
         title: "Missing SPDX License",
         description: "Source code should include an SPDX license identifier",
-        severity: "info",
+        severity: "info" as const,
         recommendation: "Add an SPDX license identifier (e.g., // SPDX-License-Identifier: MIT)"
       };
       results.push(result);
@@ -262,11 +262,11 @@ export function analyzeCode(code: string): { results: SecurityResult[], scores: 
     }
 
     if (!code.includes('/// @')) {
-      const result = {
+      const result: SecurityResult = {
         id: "NATSPEC",
         title: "Missing NatSpec Comments",
         description: "Functions should be documented using NatSpec format",
-        severity: "info",
+        severity: "info" as const,
         recommendation: "Add NatSpec comments to document contract and functions"
       };
       results.push(result);
