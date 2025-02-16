@@ -3,7 +3,7 @@ import { CodeEditor } from "@/components/code-editor";
 import { AnalysisReport } from "@/components/analysis-report";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Trash2, Clipboard, Download } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import { analyzeCode } from "@/lib/security-rules";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -64,37 +64,7 @@ export default function Home() {
     }
   }
 
-  const handleClear = () => {
-    setCode("");
-    setResults([]);
-    setScores(undefined);
-    toast({
-      title: "Code Cleared",
-      description: "The editor has been cleared",
-    });
-  };
-
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text) {
-        throw new Error("Clipboard is empty");
-      }
-      setCode(text);
-      toast({
-        title: "Code Pasted",
-        description: "Successfully pasted code from clipboard",
-      });
-    } catch (err) {
-      toast({
-        title: "Paste Failed",
-        description: "Could not access clipboard. Try manual paste (Ctrl/Cmd + V).",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDownloadReport = () => {
+  const handleDownloadReport = async () => {
     if (!results.length || !scores) {
       toast({
         title: "No Analysis Results",
@@ -106,16 +76,25 @@ export default function Home() {
 
     try {
       const doc = generateAuditReport(code, results, scores);
-      doc.save('smart-contract-audit-report.pdf');
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'smart-contract-audit-report.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Report Downloaded",
         description: "Your audit report has been downloaded successfully",
       });
     } catch (error) {
+      console.error('PDF generation error:', error);
       toast({
         title: "Download Failed",
-        description: "Failed to generate the audit report",
+        description: "Failed to generate the audit report. Please try again.",
         variant: "destructive",
       });
     }
@@ -136,29 +115,7 @@ export default function Home() {
 
         <div className="grid gap-8 md:grid-cols-2">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Contract Code</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePaste}
-                  className="gap-2 hover:bg-primary/5 active:scale-95 transition-transform"
-                >
-                  <Clipboard className="h-4 w-4" />
-                  Paste
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClear}
-                  className="gap-2 hover:bg-destructive/5 active:scale-95 transition-transform"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Clear
-                </Button>
-              </div>
-            </div>
+            <h2 className="text-xl font-semibold">Contract Code</h2>
             <CodeEditor value={code} onChange={setCode} />
             <Button
               onClick={handleAnalyze}
