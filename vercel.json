@@ -2,7 +2,7 @@
   "builds": [
     {
       "src": "vite.config.ts",
-      "use": "@vercel/vite"
+      "use": "@vercel/node"
     },
     {
       "src": "server/index.js",
